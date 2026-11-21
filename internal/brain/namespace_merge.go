@@ -137,7 +137,7 @@ func (b *Brain) MergeNamespace(ctx context.Context, fromSlug, intoSlug string, d
 		{"hypotheses", "UPDATE hypotheses SET namespace_id = $2 WHERE namespace_id = $1 RETURNING id"},
 		{"failures", "UPDATE failures SET namespace_id = $2 WHERE namespace_id = $1 RETURNING id"},
 		{"contradictions", "UPDATE contradictions SET namespace_id = $2 WHERE namespace_id = $1 RETURNING id"},
-		{"memory_utility", "UPDATE memory_utility SET namespace_id = $2 WHERE namespace_id = $1 RETURNING id"},
+		{"memory_utility", "UPDATE memory_utility SET namespace_id = $2 WHERE namespace_id = $1 RETURNING memory_id"},
 	}
 	for _, m := range moves {
 		if err := b.logAndMoveRows(ctx, tx, mergeID, m.table, m.sql, fromID, intoID); err != nil {

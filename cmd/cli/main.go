@@ -158,6 +158,22 @@ func main() {
 				},
 			},
 			{
+				Name:  "admin",
+				Usage: "Administrative maintenance",
+				Commands: []*cli.Command{
+					{
+						Name:   "expire-facts",
+						Usage:  "Set valid_until on matching facts (does not delete rows; dry-run unless --apply)",
+						Action: adminExpireFactsCmd,
+						Flags: []cli.Flag{
+							&cli.StringFlag{Name: "namespace", Aliases: []string{"n"}, Usage: "Namespace path (required)", Required: true},
+							&cli.StringFlag{Name: "match", Usage: "Substring match on fact content"},
+							&cli.BoolFlag{Name: "apply", Usage: "Apply expiry (default is dry-run)"},
+						},
+					},
+				},
+			},
+			{
 				Name:  "consolidate",
 				Usage: "Consolidate memories",
 				Commands: []*cli.Command{

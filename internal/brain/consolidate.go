@@ -73,14 +73,20 @@ func (b *Brain) ConsolidateByID(ctx context.Context, nsID int64) (ConsolidationR
 
 	// Stage 1: Episodes -> Facts (+ Stage 4: Contradiction detection)
 	if ctx.Err() == nil {
-		factsCreated, factsDeduped, episodesRead, llmCalls, contFound, contAuto, errs := b.consolidateEpisodesToFacts(ctx, nsID, cp)
-		result.FactsCreated = factsCreated
-		result.FactsDeduplicated = factsDeduped
-		result.EpisodesRead = episodesRead
-		result.LLMCalls += llmCalls
-		result.ContradictionsFound = contFound
-		result.ContradictionsAutoResolved = contAuto
-		result.Errors = append(result.Errors, errs...)
+		if !b.config.RunEpisodesToFactsConsolidation(namespaceSlug) {
+			episodesRead, errs := b.advanceEpisodeCheckpointWithoutConsolidation(ctx, nsID, cp)
+			result.EpisodesRead = episodesRead
+			result.Errors = append(result.Errors, errs...)
+		} else {
+			factsCreated, factsDeduped, episodesRead, llmCalls, contFound, contAuto, errs := b.consolidateEpisodesToFacts(ctx, nsID, cp)
+			result.FactsCreated = factsCreated
+			result.FactsDeduplicated = factsDeduped
+			result.EpisodesRead = episodesRead
+			result.LLMCalls += llmCalls
+			result.ContradictionsFound = contFound
+			result.ContradictionsAutoResolved = contAuto
+			result.Errors = append(result.Errors, errs...)
+		}
 	}
 
 	// Stage 2: Facts -> Relationships
@@ -174,6 +180,45 @@ func (b *Brain) ConsolidateByID(ctx context.Context, nsID int64) (ConsolidationR
 }
 
 // --- Stage 1: Episodes -> Facts ---
+
+// advanceEpisodeCheckpointWithoutConsolidation advances the episode cursor without creating facts
+// (used for telemetry namespaces configured as episode-only).
+func (b *Brain) advanceEpisodeCheckpointWithoutConsolidation(ctx context.Context, nsID int64, cp *models.ConsolidationProgress) (read int, errs []string) {
+	sql, args, err := b.queries.FetchEpisodes(nsID, cp.LastEpisodeID, b.config.BatchSize)
+	if err != nil {
+		errs = append(errs, fmt.Sprintf("build fetch episodes: %v", err))
+		return
+	}
+
+	rows, err := b.pool.Query(ctx, sql, args...)
+	if err != nil {
+		errs = append(errs, fmt.Sprintf("fetch episodes: %v", err))
+		return
+	}
+	defer rows.Close()
+
+	var maxID int64
+	for rows.Next() {
+		var e models.Episode
+		if err := rows.Scan(&e.ID, &e.NamespaceID, &e.Content, &e.Embedding, &e.EmbeddingModel, &e.OccurredAt, &e.CreatedAt); err != nil {
+			errs = append(errs, fmt.Sprintf("scan episode: %v", err))
+			continue
+		}
+		read++
+		if e.ID > maxID {
+			maxID = e.ID
+		}
+	}
+	if err := rows.Err(); err != nil {
+		errs = append(errs, fmt.Sprintf("episode rows: %v", err))
+		return
+	}
+
+	if len(errs) == 0 && maxID > cp.LastEpisodeID {
+		cp.LastEpisodeID = maxID
+	}
+	return
+}
 
 func (b *Brain) consolidateEpisodesToFacts(ctx context.Context, nsID int64, cp *models.ConsolidationProgress) (created, deduped, read, llmCalls, contradictionsFound, contradictionsAutoResolved int, errs []string) {
 	sql, args, err := b.queries.FetchEpisodes(nsID, cp.LastEpisodeID, b.config.BatchSize)

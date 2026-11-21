@@ -84,6 +84,7 @@ func New(ctx context.Context) (*Context, error) {
 		ExpiryThreshold:                cfg.ExpiryThreshold,
 		HypothesisAutoConfirmThreshold: cfg.HypothesisAutoConfirmThreshold,
 		HypothesisAutoRejectThreshold:  cfg.HypothesisAutoRejectThreshold,
+		EpisodeOnlyNamespacePrefixes:     brain.ParseEpisodeOnlyNamespacePrefixes(cfg.EpisodeOnlyNamespaces),
 	})
 	if err != nil {
 		pool.Close()

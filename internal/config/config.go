@@ -37,6 +37,9 @@ type Config struct {
 	ExpiryThreshold                      float32 `env:"STASH_EXPIRY_THRESHOLD" envDefault:"0.1"`
 	HypothesisAutoConfirmThreshold       float32 `env:"STASH_HYPOTHESIS_AUTO_CONFIRM_THRESHOLD" envDefault:"0.9"`
 	HypothesisAutoRejectThreshold        float32 `env:"STASH_HYPOTHESIS_AUTO_REJECT_THRESHOLD" envDefault:"0.9"`
+
+	// Telemetry namespaces: episodes are retained but not promoted to durable facts.
+	EpisodeOnlyNamespaces string `env:"STASH_EPISODE_ONLY_NAMESPACES" envDefault:"/system/healthcheck,/projects/fleet"`
 }
 
 func NewFromFile(filename string) (*Config, error) {

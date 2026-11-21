@@ -60,6 +60,7 @@ type Config struct {
 	ExpiryThreshold                float32
 	HypothesisAutoConfirmThreshold float32
 	HypothesisAutoRejectThreshold  float32
+	EpisodeOnlyNamespacePrefixes   []string
 }
 
 func DefaultConfig() Config {

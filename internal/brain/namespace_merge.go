@@ -137,13 +137,15 @@ func (b *Brain) MergeNamespace(ctx context.Context, fromSlug, intoSlug string, d
 		{"hypotheses", "UPDATE hypotheses SET namespace_id = $2 WHERE namespace_id = $1 RETURNING id"},
 		{"failures", "UPDATE failures SET namespace_id = $2 WHERE namespace_id = $1 RETURNING id"},
 		{"contradictions", "UPDATE contradictions SET namespace_id = $2 WHERE namespace_id = $1 RETURNING id"},
-		{"consolidation_quarantine", "UPDATE consolidation_quarantine SET namespace_id = $2 WHERE namespace_id = $1 RETURNING id"},
 		{"memory_utility", "UPDATE memory_utility SET namespace_id = $2 WHERE namespace_id = $1 RETURNING id"},
 	}
 	for _, m := range moves {
 		if err := b.logAndMoveRows(ctx, tx, mergeID, m.table, m.sql, fromID, intoID); err != nil {
 			return nil, err
 		}
+	}
+	if err := b.mergeConsolidationQuarantine(ctx, tx, mergeID, fromID, intoID); err != nil {
+		return nil, err
 	}
 
 	// Context row is keyed by namespace_id — drop source row if target already has one.
@@ -212,6 +214,40 @@ func (b *Brain) lookupNamespaceMergeState(ctx context.Context, slug string) (id 
 		return 0, nil, fmt.Errorf("lookup namespace: %w", err)
 	}
 	return id, mergedInto, nil
+}
+
+func (b *Brain) mergeConsolidationQuarantine(ctx context.Context, tx pgx.Tx, mergeID, fromID, intoID int64) error {
+	// PK is (namespace_id, stage, record_id) — drop source rows that would collide with target.
+	rows, err := tx.Query(ctx, `
+		DELETE FROM consolidation_quarantine AS src
+		USING consolidation_quarantine AS dst
+		WHERE src.namespace_id = $1 AND dst.namespace_id = $2
+		  AND src.stage = dst.stage AND src.record_id = dst.record_id
+		RETURNING src.record_id`, fromID, intoID)
+	if err != nil {
+		return fmt.Errorf("dedupe consolidation quarantine: %w", err)
+	}
+	for rows.Next() {
+		var recordID int64
+		if err := rows.Scan(&recordID); err != nil {
+			rows.Close()
+			return err
+		}
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO namespace_merge_moves (merge_id, table_name, row_id) VALUES ($1, $2, $3)`,
+			mergeID, "consolidation_quarantine_deleted", recordID); err != nil {
+			rows.Close()
+			return fmt.Errorf("log quarantine delete: %w", err)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	rows.Close()
+
+	return b.logAndMoveRows(ctx, tx, mergeID, "consolidation_quarantine",
+		"UPDATE consolidation_quarantine SET namespace_id = $2 WHERE namespace_id = $1 RETURNING record_id",
+		fromID, intoID)
 }
 
 func (b *Brain) logAndMoveRows(ctx context.Context, tx pgx.Tx, mergeID int64, table, updateSQL string, fromID, intoID int64) error {

@@ -77,10 +77,11 @@ func TestRecallFeedbackLoopIntegration(t *testing.T) {
 	defer br.Close()
 
 	slug := fmt.Sprintf("/recall-loop-test-%d", time.Now().UnixNano())
-	namespaceID, err := br.CreateNamespace(ctx, slug, "Recall loop test", "integration test")
+	createResult, err := br.CreateNamespace(ctx, slug, "Recall loop test", "integration test")
 	if err != nil {
 		t.Fatal(err)
 	}
+	namespaceID := createResult.ID
 	defer func() { _, _ = pool.Exec(ctx, "DELETE FROM namespaces WHERE id = $1", namespaceID) }()
 
 	now := time.Now().UTC()

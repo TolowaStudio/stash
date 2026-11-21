@@ -111,6 +111,9 @@ type Config struct {
 	ProviderRerankAPIKey         string `env:"STASH_DEEPINFRA_RERANK_API_KEY" envDefault:""`
 	ProviderRerankBaseURL        string `env:"STASH_DEEPINFRA_RERANK_BASE_URL" envDefault:"https://api.deepinfra.com"`
 	ProviderRerankCandidateLimit int    `env:"STASH_DEEPINFRA_RERANK_CANDIDATE_LIMIT" envDefault:"50"`
+
+	// Telemetry namespaces: episodes are retained but not promoted to durable facts.
+	EpisodeOnlyNamespaces string `env:"STASH_EPISODE_ONLY_NAMESPACES" envDefault:"/system/healthcheck,/projects/fleet"`
 }
 
 // ShadowEnabled reports whether a shadow embedding representation is configured.

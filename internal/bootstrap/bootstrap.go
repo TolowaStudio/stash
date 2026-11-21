@@ -102,6 +102,7 @@ func New(ctx context.Context) (*Context, error) {
 		ProviderRerankCandidateLimit:   cfg.ProviderRerankCandidateLimit,
 		MaxRecordAttempts:              cfg.MaxRecordAttempts,
 		CycleReasonerCallCeiling:       cfg.CycleReasonerCallCeiling,
+		EpisodeOnlyNamespacePrefixes:   brain.ParseEpisodeOnlyNamespacePrefixes(cfg.EpisodeOnlyNamespaces),
 	}
 	if cfg.ProviderRerankEnabled() {
 		reranker, err := brain.NewDeepInfraReranker(cfg.ProviderRerankBaseURL, cfg.ProviderRerankAPIKey, cfg.ProviderRerankModel)

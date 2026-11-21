@@ -77,6 +77,8 @@ type Config struct {
 	// CycleReasonerCallCeiling caps reasoner calls per namespace per cycle
 	// regardless of watermark state. Zero uses DefaultCycleReasonerCallCeiling.
 	CycleReasonerCallCeiling int
+
+	EpisodeOnlyNamespacePrefixes []string
 }
 
 func DefaultConfig() Config {

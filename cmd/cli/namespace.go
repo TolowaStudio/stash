@@ -41,3 +41,43 @@ func namespaceListCmd(ctx context.Context, cmd *cli.Command) error {
 	}
 	return printJSON(namespaces)
 }
+
+func namespaceDescribeCmd(ctx context.Context, cmd *cli.Command) error {
+	args := cmd.Args()
+	if args.Len() == 0 {
+		return fmt.Errorf("namespace slug is required")
+	}
+	slug := args.First()
+	bc := getBootstrap(cmd)
+	if err := bc.Brain.UpdateNamespaceDescription(ctx, slug, cmd.String("description")); err != nil {
+		return err
+	}
+	return printJSON(map[string]any{"slug": slug, "description": cmd.String("description")})
+}
+
+func namespaceRenameCmd(ctx context.Context, cmd *cli.Command) error {
+	args := cmd.Args()
+	if args.Len() != 2 {
+		return fmt.Errorf("usage: namespace rename <from-slug> <to-slug>")
+	}
+	from, to := args.Get(0), args.Get(1)
+	bc := getBootstrap(cmd)
+	if err := bc.Brain.RenameNamespace(ctx, from, to); err != nil {
+		return err
+	}
+	return printJSON(map[string]any{"from": from, "to": to})
+}
+
+func namespaceMergeCmd(ctx context.Context, cmd *cli.Command) error {
+	args := cmd.Args()
+	if args.Len() != 2 {
+		return fmt.Errorf("usage: namespace merge <source-slug> <target-slug>")
+	}
+	source, target := args.Get(0), args.Get(1)
+	bc := getBootstrap(cmd)
+	res, err := bc.Brain.MergeNamespaces(ctx, source, target)
+	if err != nil {
+		return err
+	}
+	return printJSON(map[string]any{"source": source, "target": target, "result": res})
+}

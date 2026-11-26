@@ -21,11 +21,16 @@ func namespaceCreateCmd(ctx context.Context, cmd *cli.Command) error {
 	description := cmd.String("description")
 
 	bc := getBootstrap(cmd)
-	id, err := bc.Brain.CreateNamespace(ctx, slug, name, description)
+	result, err := bc.Brain.CreateNamespace(ctx, slug, name, description)
 	if err != nil {
 		return err
 	}
-	return printJSON(map[string]any{"id": id, "slug": slug})
+	out := map[string]any{"id": result.ID, "slug": result.Slug}
+	if result.ExistingSlug {
+		out["existing_slug"] = true
+		out["message"] = "normalized slug already exists; using existing namespace"
+	}
+	return printJSON(out)
 }
 
 func namespaceListCmd(ctx context.Context, cmd *cli.Command) error {

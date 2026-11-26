@@ -324,13 +324,14 @@ func newMCPServer(bc *bootstrap.Context) *server.MCPServer {
 		name := request.GetString("name", slug)
 		description := request.GetString("description", "")
 
-		id, err := bc.Brain.CreateNamespace(ctx, slug, name, description)
+		result, err := bc.Brain.CreateNamespace(ctx, slug, name, description)
 		if err != nil {
 			return nil, err
 		}
+		b, _ := json.Marshal(result)
 		return &mcp.CallToolResult{Content: []mcp.Content{mcp.TextContent{
 			Type: "text",
-			Text: fmt.Sprintf(`{"id": %d, "slug": "%s"}`, id, slug),
+			Text: string(b),
 		}}}, nil
 	})
 

@@ -9,23 +9,38 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// NamespaceCreateResult is returned when a namespace is created or an existing twin is reused.
+type NamespaceCreateResult struct {
+	ID              int64  `json:"id"`
+	Slug            string `json:"slug"`
+	ExistingSlug    bool   `json:"existing_slug,omitempty"`
+}
+
 // CreateNamespace creates a new namespace with the given slug, name, and description.
 // Parent namespaces are auto-created with slug as name if they don't exist.
-func (b *Brain) CreateNamespace(ctx context.Context, slug, name, description string) (int64, error) {
+// When the normalized slug collides with an active namespace, the existing slug is returned.
+func (b *Brain) CreateNamespace(ctx context.Context, slug, name, description string) (NamespaceCreateResult, error) {
 	if err := validatePath(slug); err != nil {
-		return 0, err
+		return NamespaceCreateResult{}, err
+	}
+
+	if existingSlug, existingID, found, err := b.FindNamespaceByNormalizedSlug(ctx, slug); err != nil {
+		return NamespaceCreateResult{}, err
+	} else if found {
+		return NamespaceCreateResult{ID: existingID, Slug: existingSlug, ExistingSlug: true}, nil
 	}
 
 	segments := splitPath(slug)
 	if len(segments) == 0 {
 		var id int64
 		err := b.pool.QueryRow(ctx,
-			"INSERT INTO namespaces (slug, name) VALUES ('/', '/') ON CONFLICT (slug) DO UPDATE SET updated_at = now() RETURNING id",
+			`INSERT INTO namespaces (slug, name, normalized_slug) VALUES ('/', '/', '')
+			 ON CONFLICT (slug) DO UPDATE SET updated_at = now() RETURNING id`,
 		).Scan(&id)
 		if err != nil {
-			return 0, fmt.Errorf("create root namespace: %w", err)
+			return NamespaceCreateResult{}, fmt.Errorf("create root namespace: %w", err)
 		}
-		return id, nil
+		return NamespaceCreateResult{ID: id, Slug: "/"}, nil
 	}
 
 	currentPath := ""
@@ -33,22 +48,26 @@ func (b *Brain) CreateNamespace(ctx context.Context, slug, name, description str
 		currentPath += "/" + seg
 		if i < len(segments)-1 {
 			var id int64
+			parentNorm := NormalizeNamespaceSlug(currentPath)
 			_ = b.pool.QueryRow(ctx,
-				"INSERT INTO namespaces (slug, name) VALUES ($1, $1) ON CONFLICT (slug) DO UPDATE SET updated_at = now() RETURNING id",
-				currentPath,
+				`INSERT INTO namespaces (slug, name, normalized_slug) VALUES ($1, $1, $2)
+				 ON CONFLICT (slug) DO UPDATE SET updated_at = now() RETURNING id`,
+				currentPath, parentNorm,
 			).Scan(&id)
 		}
 	}
 
 	var id int64
+	normalized := NormalizeNamespaceSlug(slug)
 	err := b.pool.QueryRow(ctx,
-		"INSERT INTO namespaces (slug, name, description) VALUES ($1, $2, $3) ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description, updated_at = now() RETURNING id",
-		slug, name, description,
+		`INSERT INTO namespaces (slug, name, description, normalized_slug) VALUES ($1, $2, $3, $4)
+		 ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description, updated_at = now() RETURNING id`,
+		slug, name, description, normalized,
 	).Scan(&id)
 	if err != nil {
-		return 0, fmt.Errorf("create namespace: %w", err)
+		return NamespaceCreateResult{}, fmt.Errorf("create namespace: %w", err)
 	}
-	return id, nil
+	return NamespaceCreateResult{ID: id, Slug: slug}, nil
 }
 
 // GetNamespace returns a namespace by slug.

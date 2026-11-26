@@ -66,6 +66,22 @@ func main() {
 				Action: EnvCmd,
 			},
 			{
+				Name:  "admin",
+				Usage: "Administrative operations",
+				Commands: []*cli.Command{
+					{
+						Name:   "merge-namespace",
+						Usage:  "Merge one namespace into another (dry-run by default)",
+						Action: adminMergeNamespaceCmd,
+						Flags: []cli.Flag{
+							&cli.StringFlag{Name: "from", Required: true, Usage: "Source namespace slug to merge away"},
+							&cli.StringFlag{Name: "into", Required: true, Usage: "Target namespace slug that receives all rows"},
+							&cli.BoolFlag{Name: "dry-run", Value: true, Usage: "Print row counts only (default)"},
+						},
+					},
+				},
+			},
+			{
 				Name:  "namespace",
 				Usage: "Manage namespaces",
 				Commands: []*cli.Command{

@@ -235,11 +235,15 @@ func likePatternForDescendants(path string) string {
 // Returns ErrNamespaceNotFound if no matching namespace exists.
 func (b *Brain) resolveNamespaceID(ctx context.Context, path string) (int64, error) {
 	var id int64
+	var mergedInto *int64
 	err := b.pool.QueryRow(ctx,
-		"SELECT id FROM namespaces WHERE slug = $1", path,
-	).Scan(&id)
+		"SELECT id, merged_into FROM namespaces WHERE slug = $1", path,
+	).Scan(&id, &mergedInto)
 	if err != nil {
 		return 0, ErrNamespaceNotFound
+	}
+	if mergedInto != nil {
+		return *mergedInto, nil
 	}
 	return id, nil
 }
@@ -283,6 +287,20 @@ func (b *Brain) resolveNamespaceIDs(ctx context.Context, paths []string) ([]int6
 // resolveNamespaceIDWithDescendants returns IDs for the exact path plus all descendants.
 // For "/", returns all namespace IDs.
 func (b *Brain) resolveNamespaceIDWithDescendants(ctx context.Context, path string) ([]int64, error) {
+	var mergedInto *int64
+	err := b.pool.QueryRow(ctx,
+		`SELECT merged_into FROM namespaces WHERE slug = $1`, path,
+	).Scan(&mergedInto)
+	if err == nil && mergedInto != nil {
+		var intoSlug string
+		if err := b.pool.QueryRow(ctx,
+			`SELECT slug FROM namespaces WHERE id = $1`, *mergedInto,
+		).Scan(&intoSlug); err != nil {
+			return nil, fmt.Errorf("resolve merge alias for %q: %w", path, err)
+		}
+		return b.resolveNamespaceIDWithDescendants(ctx, intoSlug)
+	}
+
 	if path == "/" {
 		rows, err := b.pool.Query(ctx, "SELECT id FROM namespaces")
 		if err != nil {

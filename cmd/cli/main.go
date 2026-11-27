@@ -79,6 +79,24 @@ func main() {
 						},
 					},
 					{
+						Name:   "describe",
+						Usage:  "Replace a namespace's description",
+						Action: namespaceDescribeCmd,
+						Flags: []cli.Flag{
+							&cli.StringFlag{Name: "description", Usage: "New description", Required: true},
+						},
+					},
+					{
+						Name:   "rename",
+						Usage:  "Rename a namespace slug (refuses if target exists or has descendants)",
+						Action: namespaceRenameCmd,
+					},
+					{
+						Name:   "merge",
+						Usage:  "Move all memories from one namespace into another and remove the source namespace (no memories deleted)",
+						Action: namespaceMergeCmd,
+					},
+					{
 						Name:   "list",
 						Usage:  "List namespaces",
 						Action: namespaceListCmd,
